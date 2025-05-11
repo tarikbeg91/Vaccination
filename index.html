@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>टीकाकरण चार्ट</title>
+    <style>
+        body {
+            font-family: 'Arial', 'Noto Sans Devanagari', sans-serif;
+            margin: 0; padding: 5px; background-color: #f4f4f4;
+            color: #333; line-height: 1.4; font-size: 14px;
+        }
+        .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 10px;
+        }
+        h1 {
+            color: #0056b3; font-size: 1.2em;
+            margin-top: 10px; margin-bottom: 10px;
+        }
+        #langToggleBtn {
+            background-color: #6c757d; color: white; border: none;
+            padding: 6px 10px; font-size: 0.8em; border-radius: 5px;
+            cursor: pointer;
+        }
+        #langToggleBtn:hover { background-color: #5a6268; }
+
+        .controls-container { text-align: center; margin-bottom: 15px; }
+        .add-vaccine-button {
+            background-color: #007bff; color: white; border: none;
+            padding: 8px 15px; font-size: 0.9em; border-radius: 5px;
+            cursor: pointer;
+        }
+        .add-vaccine-button:hover { background-color: #0056b3; }
+
+        .info-text { text-align: center; font-size: 0.8em; color: #555; margin-bottom: 10px; }
+        .table-container { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid #ccc; }
+        table { width: 100%; min-width: 600px; border-collapse: collapse; background-color: #fff; }
+        th, td { border: 1px solid #ddd; padding: 4px 6px; text-align: left; vertical-align: top; font-size: 0.85em; }
+        th { background-color: #007bff; color: white; font-weight: bold; position: sticky; top: 0; z-index: 1; white-space: normal; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        .action-button { padding: 3px 5px; background-color: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 0.9em; }
+        .action-button:disabled { background-color: #ccc; cursor: not-allowed; }
+
+        .col-sno { min-width: 25px; text-align: center;}
+        .col-age { min-width: 55px; white-space: normal; }
+        .col-vaccine { min-width: 90px; font-weight: 500; white-space: normal; color: #0056b3; cursor: pointer; text-decoration: underline; }
+        .col-vaccine:hover { color: #003d80; }
+        .col-administered-datetime { min-width: 80px; white-space: normal; }
+        .col-admin-by { min-width: 60px; white-space: normal;}
+        .col-next-due { min-width: 70px; white-space: normal; }
+        .col-remarks { min-width: 70px; white-space: normal; }
+        
+        .user-added-sno { 
+            font-weight: bold; /* केवल बोल्ड करें या कोई और सूक्ष्म अंतर */
+            /* color: #c67c00; */ /* वैकल्पिक: टेक्स्ट का रंग भी बदल सकते हैं */
+        }
+        .sno-administered { 
+            background-color: #d4edda; 
+            color: #155724;
+            /* font-weight: bold; /* यदि user-added-sno के साथ उपयोग कर रहे हैं, तो इसे यहाँ से हटा सकते हैं */
+        }
+
+
+        td[contenteditable="true"] { background-color: #fffef0; padding: 4px; border: 1px solid #eee; }
+        td[contenteditable="true"]:focus { outline: 1px solid #007bff; background-color: #eef7ff; }
+
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); }
+        .modal-content { background-color: #fefefe; margin: 10% auto; padding: 20px; border: 1px solid #888; width: 90%; max-width: 450px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); position: relative; }
+        .modal-content h3 { margin-top: 0; color: #0056b3; }
+        .modal-content p { margin-bottom: 8px; line-height: 1.5; }
+        .modal-content strong { color: #333; }
+        .close-button { color: #aaa; position: absolute; top: 10px; right: 15px; font-size: 28px; font-weight: bold; }
+        .close-button:hover, .close-button:focus { color: black; text-decoration: none; cursor: pointer; }
+        
+        .form-group { margin-bottom: 10px; }
+        .form-group label { display: block; margin-bottom: 3px; font-weight: bold; font-size: 0.9em;}
+        .form-group input[type="text"], .form-group input[type="number"], .form-group textarea { width: calc(100% - 12px); padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.9em; }
+        .form-group textarea { resize: vertical; min-height: 40px; }
+        .modal-submit-button { background-color: #28a745; color: white; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 1em; }
+        .modal-submit-button:hover { background-color: #1e7e34; }
+
+        @media (max-width: 480px) {
+            body { font-size: 12px; padding: 3px;}
+            h1 { font-size: 1.1em; }
+            th, td { font-size: 0.8em; padding: 3px 4px;}
+            table { min-width: 500px; }
+            .modal-content { margin: 15% auto; padding: 15px; }
+             .col-administered-datetime { min-width: 75px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header-container">
+        <h1 id="pageTitle">टीकाकरण चार्ट</h1>
+        <button id="langToggleBtn">English</button>
+    </div>
+    <div class="controls-container">
+        <button id="openAddVaccineModalBtn" class="add-vaccine-button">+ नया टीका जोड़ें</button>
+    </div>
+    <p class="info-text" id="infoText">
+        (टीके के नाम पर क्लिक करके अधिक जानकारी देखें। टेबल को दाएं-बाएं खिसकाएं।)
+    </p>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th class="col-sno" id="headerSno">क्र.</th>
+                    <th class="col-age" id="headerAge">उम्र</th>
+                    <th class="col-vaccine" id="headerVaccine">टीका <br>(विवरण के लिए क्लिक करें)</th>
+                    <th class="col-administered-datetime" id="headerAdministered">लगाया गया <br> (तारीख/समय)</th>
+                    <th class="col-admin-by" id="headerAdminBy">किसने <br> लगाया</th>
+                    <th class="col-next-due" id="headerNextDue">अगली <br> तिथि</th>
+                    <th class="col-remarks" id="headerRemarks">टिप्पणी</th>
+                    <th id="headerAction">एक्शन</th>
+                </tr>
+            </thead>
+            <tbody id="vaccinationTableBody"></tbody>
+        </table>
+    </div>
+
+    <!-- Vaccine Details Modal -->
+    <div id="vaccineDetailsModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" id="closeDetailsModalBtn">&times;</span>
+            <h3 id="modalVaccineName"></h3>
+            <p><strong id="detailsModalAgeLabel">उम्र:</strong> <span id="modalAge"></span></p>
+            <p><strong id="detailsModalProtectsLabel">किस बीमारी से बचाता है:</strong> <span id="modalProtectsAgainst"></span></p>
+            <p><strong id="detailsModalHowGivenLabel">कैसे दिया जाता है:</strong> <span id="modalHowGiven"></span></p>
+            <p><strong id="detailsModalTypicalNextDoseLabel">अगली सामान्य खुराक:</strong> <span id="modalTypicalNextDose"></span></p>
+            <p><strong id="detailsModalSpecialNotesLabel">विशेष बातें:</strong> <span id="modalSpecialNotes"></span></p>
+        </div>
+    </div>
+
+    <!-- Add New Vaccine Modal -->
+    <div id="addVaccineModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" id="closeAddModalBtn">&times;</span>
+            <h3 id="addVaccineModalTitle">नया टीका जोड़ें</h3>
+            <div class="form-group">
+               <label for="newVaccineSno" id="labelNewSno">क्रम संख्या (S.No. - Optional, Add after this S.No.):</label>
+               <input type="number" id="newVaccineSno" placeholder="जैसे: 3 (टीका क्र. 3 के बाद जुड़ेगा)">
+           </div>
+            <div class="form-group">
+                <label for="newVaccineAge" id="labelNewAge">उम्र (Age - Required):</label>
+                <input type="text" id="newVaccineAge" placeholder="जैसे: 6 महीने / e.g., 6 Months">
+            </div>
+            <div class="form-group">
+                <label for="newVaccineNameInput" id="labelNewVaccineName">टीके का नाम (Vaccine Name - Required):</label>
+                <input type="text" id="newVaccineNameInput" placeholder="जैसे: इन्फ्लुएंजा / e.g., Influenza">
+            </div>
+            <!-- Optional: Add Special Notes field back if desired for new vaccines -->
+            <!-- 
+            <div class="form-group">
+                <label for="newSpecialNotesInput" id="labelNewSpecialNotes">विशेष बातें (वैकल्पिक):</label>
+                <textarea id="newSpecialNotesInput" placeholder="टीके की विशेष जानकारी"></textarea>
+            </div>
+            -->
+            <button id="submitNewVaccineBtn" class="modal-submit-button">टीका जोड़ें</button>
+        </div>
+    </div>
+
+    <script>
+        // --- LANGUAGE AND UI STRINGS ---
+        let currentLanguage = localStorage.getItem('vaccineChartLang') || 'hi';
+        const uiStrings = {
+            pageTitle: { en: "Vaccination Chart", hi: "टीकाकरण चार्ट" },
+            addVaccineBtn: { en: "+ Add New Vaccine", hi: "+ नया टीका जोड़ें" },
+            infoText: { en: "(Click on vaccine name for details. Scroll table horizontally.)", hi: "(टीके के नाम पर क्लिक करके अधिक जानकारी देखें। टेबल को दाएं-बाएं खिसकाएं।)" },
+            headerSno: { en: "S.No.", hi: "क्र." },
+            headerAge: { en: "Age", hi: "उम्र" },
+            headerVaccine: { en: "Vaccine <br>(Click for details)", hi: "टीका <br>(विवरण के लिए क्लिक करें)" },
+            headerAdministered: { en: "Administered <br> (Date/Time)", hi: "लगाया गया <br> (तारीख/समय)" },
+            headerAdminBy: { en: "Admin. By", hi: "किसने <br> लगाया" },
+            headerNextDue: { en: "Next Due", hi: "अगली <br> तिथि" },
+            headerRemarks: { en: "Remarks", hi: "टिप्पणी" },
+            headerAction: { en: "Action", hi: "एक्शन" },
+            detailsModalAgeLabel: { en: "Age:", hi: "उम्र:" },
+            detailsModalProtectsLabel: { en: "Protects Against:", hi: "किस बीमारी से बचाता है:" },
+            detailsModalHowGivenLabel: { en: "How Given:", hi: "कैसे दिया जाता है:" },
+            detailsModalTypicalNextDoseLabel: { en: "Typical Next Dose:", hi: "अगली सामान्य खुराक:" },
+            detailsModalSpecialNotesLabel: { en: "Special Notes:", hi: "विशेष बातें:" },
+            addVaccineModalTitle: { en: "Add New Vaccine", hi: "नया टीका जोड़ें" },
+            labelNewSno: { en: "S.No. (Optional, Add after this S.No.):", hi: "क्रम संख्या (वैकल्पिक, इस क्र.सं. के बाद जोड़ें):" },
+            labelNewAge: { en: "Age (Required):", hi: "उम्र (आवश्यक):" },
+            labelNewVaccineName: { en: "Vaccine Name (Required):", hi: "टीके का नाम (आवश्यक):" },
+            // labelNewSpecialNotes: { en: "Special Notes (Optional):", hi: "विशेष बातें (वैकल्पिक):"}, // यदि फ़ील्ड वापस जोड़ें
+            submitNewVaccineBtn: { en: "Add Vaccine", hi: "टीका जोड़ें" },
+            markAdministeredBtn: { en: "Mark", hi: "लगाया" },
+            administeredBtn: { en: "Done", hi: "लग गया" },
+            alertFillRequired: { en: "Please fill Age and Vaccine Name.", hi: "कृपया उम्र और टीके का नाम अवश्य भरें।" },
+            alertInvalidSno: { en: "Invalid S.No. for insertion. Adding to end.", hi: "डालने के लिए अमान्य क्रम संख्या। अंत में जोड़ा जा रहा है।" },
+            notAvailable: { en: "Not Available", hi: "उपलब्ध नहीं" },
+            noSpecialNotes: { en: "No special notes", hi: "कोई विशेष टिप्पणी नहीं" }
+        };
+
+        // --- DEFAULT VACCINE DATA (Ensure this is fully bilingual and includes isUserAdded: false) ---
+        const defaultVaccineSchedule = [
+             { 
+                age: { en: "At Birth", hi: "जन्म पर" }, 
+                vaccineName: { en: "OPV-0", hi: "ओपीवी-0" }, 
+                protectsAgainst: { en: "Polio", hi: "पोलियो" }, 
+                howGiven: { en: "Oral Drops", hi: "मुँह से बूँदों के रूप में" }, 
+                specialNotes: { en: "Essential for initial immunity of newborn.", hi: "नवजात शिशु की शुरुआती प्रतिरक्षा के लिए आवश्यक।" },
+                dateTimeAdministered: "", administeredBy: "", nextDueDate: {en: "OPV-1 (6W)", hi: "ओपीवी-1 (6 सप्.)"}, remarks: "", isUserAdded: false 
+            },
+            { 
+                age: { en: "At Birth", hi: "जन्म पर" }, 
+                vaccineName: { en: "BCG", hi: "बीसीजी" }, 
+                protectsAgainst: { en: "Tuberculosis (TB)", hi: "तपेदिक (टीबी)" }, 
+                howGiven: { en: "Injection (Left Shoulder)", hi: "इंजेक्शन (बाएँ कंधे पर)" }, 
+                specialNotes: { en: "May leave a scar, which is normal.", hi: "निशान छोड़ सकता है जो सामान्य है।" },
+                dateTimeAdministered: "", administeredBy: "", nextDueDate: {en:"-", hi:"-"}, remarks: "", isUserAdded: false 
+            },
+            { 
+                age: { en: "At Birth (within 24hrs)", hi: "जन्म पर (24 घंटे में)" }, 
+                vaccineName: { en: "Hepatitis B (Birth Dose)", hi: "हेपेटाइटिस बी (जन्म खुराक)" }, 
+                protectsAgainst: { en: "Hepatitis B", hi: "हेपेटाइटिस बी" }, 
+                howGiven: { en: "Injection", hi: "इंजेक्शन" }, 
+                specialNotes: { en: "Prevents mother-to-child transmission.", hi: "मां से शिशु में संक्रमण से बचाव।" },
+                dateTimeAdministered: "", administeredBy: "", nextDueDate: {en:"Penta-1 (6W)", hi:"पेंटा-1 (6 सप्.)"}, remarks: "", isUserAdded: false 
+            },
+            { 
+                age: { en: "6 Weeks", hi: "6 सप्ताह" }, 
+                vaccineName: { en: "OPV-1", hi: "ओपीवी-1" }, 
+                protectsAgainst: { en: "Polio", hi: "पोलियो" }, 
+                howGiven: { en: "Oral Drops", hi: "मुँह से बूँदें" }, 
+                specialNotes: { en: "", hi: "" },
+                dateTimeAdministered: "", administeredBy: "", nextDueDate: {en:"OPV-2 (10W)", hi:"ओपीवी-2 (10 सप्.)"}, remarks: "", isUserAdded: false 
+            },
+            { 
+                age: { en: "6 Weeks", hi: "6 सप्ताह" }, 
+                vaccineName: { en: "RVV-1", hi: "आरवीवी-1" }, 
+                protectsAgainst: { en: "Rotavirus (Diarrhoea)", hi: "रोटावायरस (दस्त)" }, 
+                howGiven: { en: "Oral", hi: "मुँह से" }, 
+                specialNotes: { en: "Protects against severe diarrhoea in young children.", hi: "छोटे बच्चों में गंभीर दस्त से सुरक्षा।" },
+                dateTimeAdministered: "", administeredBy: "", nextDueDate: {en:"RVV-2 (10W)", hi:"आरवीवी-2 (10 सप्.)"}, remarks: "", isUserAdded: false 
+            },
+            { 
+                age: { en: "6 Weeks", hi: "6 सप्ताह" }, 
+                vaccineName: { en: "Pentavalent-1", hi: "पेंटावैलेंट-1" }, 
+                protectsAgainst: { en: "Diphtheria, Pertussis, Tetanus, HepB, Hib", hi: "डिप्थीरिया, पर्टुसिस, टिटनस, हेपबी, हिब" }, 
+                howGiven: { en: "Injection", hi: "इंजेक्शन" }, 
+                specialNotes: { en: "Protection against five diseases in one shot.", hi: "एक टीके में पाँच बीमारियों से सुरक्षा।" },
+                dateTimeAdministered: "", administeredBy: "", nextDueDate: {en:"Penta-2 (10W)", hi:"पेंटा-2 (10 सप्.)"}, remarks: "", isUserAdded: false 
+            },
+            { 
+                age: { en: "6 Weeks", hi: "6 सप्ताह" }, 
+                vaccineName: { en: "PCV-1", hi: "पीसीवी-1" }, 
+                protectsAgainst: { en: "Pneumococcal (Pneumonia, Meningitis)", hi: "न्यूमोकोकल (निमोनिया, मेनिन्जाइटिस)" }, 
+                howGiven: { en: "Injection", hi: "इंजेक्शन" }, 
+                specialNotes: { en: "", hi: "" },
+                dateTimeAdministered: "", administeredBy: "", nextDueDate: {en:"PCV-2 (14W)", hi:"पीसीवी-2 (14 सप्.)"}, remarks: "", isUserAdded: false 
+            },
+            { 
+                age: { en: "10 Weeks", hi: "10 सप्ताह" }, 
+                vaccineName: { en: "OPV-2", hi: "ओपीवी-2" }, 
+                protectsAgainst: { en: "Polio", hi: "पोलियो" }, 
+                howGiven: { en: "Oral Drops", hi: "मुँह से बूँदें" }, 
+                specialNotes: { en: "", hi: "" },
+                dateTimeAdministered: "", administeredBy: "", nextDueDate: {en:"OPV-3 (14W)", hi:"ओपीवी-3 (14 सप्.)"}, remarks: "", isUserAdded: false 
+            },
+            { 
+                age: { en: "10 Weeks", hi: "10 सप्ताह" }, 
+                vaccineName: { en: "RVV-2", hi: "आरवीवी-2" }, 
+                protectsAgainst: { en: "Rotavirus", hi: "रोटावायरस" }, 
+                howGiven: { en: "Oral", hi: "मुँह से" }, 
+                specialNotes: { en: "", hi: "" },
+                dateTimeAdministered: "", administeredBy: "", nextDueDate: {en:"RVV-3 (14W)", hi:"आरवीवी-3 (14 सप्.)"}, remarks: "", isUserAdded: false 
+            },
+            { 
+                age: { en: "10 Weeks", hi: "10 सप्ताह" }, 
+                vaccineName: { en: "Pentavalent-2", hi: "पेंटावैलेंट-2" }, 
+                protectsAgainst: { en: "Diphtheria, Pertussis, Tetanus, HepB, Hib", hi: "डिप्थीरिया, पर्टुसिस, टिटनस, हेपबी, हिब" }, 
+                howGiven: { en: "Injection", hi: "इंजेक्शन" }, 
+                specialNotes: { en: "", hi: "" },
+                dateTimeAdministered: "", administeredBy: "", nextDueDate: {en:"Penta-3 (14W)", hi:"पेंटा-3 (14 सप्.)"}, remarks: "", isUserAdded: false 
+            },
+            { 
+                age: { en: "14 Weeks", hi: "14 सप्ताह" }, 
+                vaccineName: { en: "OPV-3", hi: "ओपीवी-3" }, 
+                protectsAgainst: { en: "Polio", hi: "पोलियो" }, 
+                howGiven: { en: "Oral Drops", hi: "मुँह से बूँदें" }, 
+                specialNotes: { en: "", hi: "" },
+                dateTimeAdministered: "", administeredBy: "", nextDueDate: {en:"OPV Booster (16-24M)", hi:"ओपीवी बूस्टर (16-24 माह)"}, remarks: "", isUserAdded: false 
+            },
+            { 
+                age: { en: "14 Weeks", hi: "14 सप्ताह" }, 
+                vaccineName: { en: "RVV-3", hi: "आरवीवी-3" }, 
+                protectsAgainst: { en: "Rotavirus", hi: "रोटावायरस" }, 
+                howGiven: { en: "Oral", hi: "मुँह से" }, 
+                specialNotes: { en: "", hi: "" },
+                dateTimeAdministered: "", administeredBy: "", nextDueDate: {en:"-", hi:"-"}, remarks: "", isUserAdded: false 
+            },
+            { 
+                age: { en: "14 Weeks", hi: "14 सप्ताह" }, 
+                vaccineName: { en: "Pentavalent-3", hi: "पेंटावैलेंट-3" }, 
+                protectsAgainst: { en: "Diphtheria, Pertussis, Tetanus, HepB, Hib", hi: "डिप्थीरिया, पर्टुसिस, टिटनस, हेपबी, हिब" }, 
+                howGiven: { en: "Injection", hi: "इंजेक्शन" }, 
+                specialNotes: { en: "", hi: "" },
+                dateTimeAdministered: "", administeredBy: "", nextDueDate: {en:"DPT Booster-1 (16-24M)", hi:"डीपीटी बूस्टर-1 (16-24 माह)"}, remarks: "", isUserAdded: false 
+            },
+            { 
+                age: { en: "14 Weeks", hi: "14 सप्ताह" }, 
+                vaccineName: { en: "PCV-2", hi: "पीसीवी-2" }, 
+                protectsAgainst: { en: "Pneumococcal", hi: "न्यूमोकोकल" }, 
+                howGiven: { en: "Injection", hi: "इंजेक्शन" }, 
+                specialNotes: { en: "", hi: "" },
+                dateTimeAdministered: "", administeredBy: "", nextDueDate: {en:"PCV Booster (9-12M)", hi:"पीसीवी बूस्टर (9-12 माह)"}, remarks: "", isUserAdded: false 
+            },
+            { 
+                age: { en: "9-12 Months", hi: "9-12 महीने" }, 
+                vaccineName: { en: "MR-1", hi: "एमआर-1" }, 
+                protectsAgainst: { en: "Measles, Rubella", hi: "खसरा, रूबेला" }, 
+                howGiven: { en: "Injection", hi: "इंजेक्शन" }, 
+                specialNotes: { en: "Protection from physical and mental disabilities.", hi: "शारीरिक और मानसिक विकलांगता से बचाव।" },
+                dateTimeAdministered: "", administeredBy: "", nextDueDate: {en:"MR-2 (16-24M)", hi:"एमआर-2 (16-24 माह)"}, remarks: "", isUserAdded: false 
+            },
+            { 
+                age: { en: "9-12 Months", hi: "9-12 महीने" }, 
+                vaccineName: { en: "JE-1", hi: "जेई-1" }, 
+                protectsAgainst: { en: "Japanese Encephalitis", hi: "जापानी इंसेफेलाइटिस" }, 
+                howGiven: { en: "Injection", hi: "इंजेक्शन" }, 
+                specialNotes: { en: "Only in selected districts/states.", hi: "केवल चयनित जिलों/राज्यों में।" },
+                dateTimeAdministered: "", administeredBy: "", nextDueDate: {en:"JE-2 (16-24M)", hi:"जेई-2 (16-24 माह)"}, remarks: "", isUserAdded: false 
+            },
+            { 
+                age: { en: "9-12 Months", hi: "9-12 महीने" }, 
+                vaccineName: { en: "PCV-Booster", hi: "पीसीवी-बूस्टर" }, 
+                protectsAgainst: { en: "Pneumococcal", hi: "न्यूमोकोकल" }, 
+                howGiven: { en: "Injection", hi: "इंजेक्शन" }, 
+                specialNotes: { en: "", hi: "" },
+                dateTimeAdministered: "", administeredBy: "", nextDueDate: {en:"-", hi:"-"}, remarks: "", isUserAdded: false 
+            },
+            { 
+                age: { en: "16-24 Months", hi: "16-24 महीने" }, 
+                vaccineName: { en: "OPV-Booster", hi: "ओपीवी-बूस्टर" }, 
+                protectsAgainst: { en: "Polio", hi: "पोलियो" }, 
+                howGiven: { en: "Oral", hi: "मुँह से" }, 
+                specialNotes: { en: "", hi: "" },
+                dateTimeAdministered: "", administeredBy: "", nextDueDate: {en:"-", hi:"-"}, remarks: "", isUserAdded: false 
+            },
+            { 
+                age: { en: "16-24 Months", hi: "16-24 महीने" }, 
+                vaccineName: { en: "DPT-Booster-1", hi: "डीपीटी-बूस्टर-1" }, 
+                protectsAgainst: { en: "Diphtheria, Pertussis, Tetanus", hi: "डिप्थीरिया, पर्टुसिस, टिटनस" }, 
+                howGiven: { en: "Injection", hi: "इंजेक्शन" }, 
+                specialNotes: { en: "", hi: "" },
+                dateTimeAdministered: "", administeredBy: "", nextDueDate: {en:"DPT Booster-2 (5-6Y)", hi:"डीपीटी बूस्टर-2 (5-6 वर्ष)"}, remarks: "", isUserAdded: false 
+            },
+            { 
+                age: { en: "16-24 Months", hi: "16-24 महीने" }, 
+                vaccineName: { en: "MR-2", hi: "एमआर-2" }, 
+                protectsAgainst: { en: "Measles, Rubella", hi: "खसरा, रूबेला" }, 
+                howGiven: { en: "Injection", hi: "इंजेक्शन" }, 
+                specialNotes: { en: "", hi: "" },
+                dateTimeAdministered: "", administeredBy: "", nextDueDate: {en:"-", hi:"-"}, remarks: "", isUserAdded: false 
+            },
+            { 
+                age: { en: "16-24 Months", hi: "16-24 महीने" }, 
+                vaccineName: { en: "JE-2", hi: "जेई-2" }, 
+                protectsAgainst: { en: "Japanese Encephalitis", hi: "जापानी इंसेफेलाइटिस" }, 
+                howGiven: { en: "Injection", hi: "इंजेक्शन" }, 
+                specialNotes: { en: "Only in selected districts/states.", hi: "केवल चयनित जिलों/राज्यों में।" },
+                dateTimeAdministered: "", administeredBy: "", nextDueDate: {en:"-", hi:"-"}, remarks: "", isUserAdded: false 
+            },
+            { 
+                age: { en: "5-6 Years", hi: "5-6 वर्ष" }, 
+                vaccineName: { en: "DPT-Booster-2", hi: "डीपीटी-बूस्टर-2" }, 
+                protectsAgainst: { en: "Diphtheria, Pertussis, Tetanus", hi: "डिप्थीरिया, पर्टुसिस, टिटनस" }, 
+                howGiven: { en: "Injection", hi: "इंजेक्शन" }, 
+                specialNotes: { en: "", hi: "" },
+                dateTimeAdministered: "", administeredBy: "", nextDueDate: {en:"Td (10Y)", hi:"टीडी (10 वर्ष)"}, remarks: "", isUserAdded: false 
+            },
+            { 
+                age: { en: "10 Years", hi: "10 वर्ष" }, 
+                vaccineName: { en: "Td (10 years)", hi: "टीडी (10 वर्ष)" }, 
+                protectsAgainst: { en: "Tetanus, Diphtheria", hi: "टिटनस, डिप्थीरिया" }, 
+                howGiven: { en: "Injection", hi: "इंजेक्शन" }, 
+                specialNotes: { en: "", hi: "" },
+                dateTimeAdministered: "", administeredBy: "", nextDueDate: {en:"Td (16Y)", hi:"टीडी (16 वर्ष)"}, remarks: "", isUserAdded: false 
+            },
+            { 
+                age: { en: "16 Years", hi: "16 वर्ष" }, 
+                vaccineName: { en: "Td (16 years)", hi: "टीडी (16 वर्ष)" }, 
+                protectsAgainst: { en: "Tetanus, Diphtheria", hi: "टिटनस, डिप्थीरिया" }, 
+                howGiven: { en: "Injection", hi: "इंजेक्शन" }, 
+                specialNotes: { en: "", hi: "" },
+                dateTimeAdministered: "", administeredBy: "", nextDueDate: {en:"-", hi:"-"}, remarks: "", isUserAdded: false 
+            },
+            { 
+                age: { en: "During Pregnancy", hi: "गर्भावस्था में" }, 
+                vaccineName: { en: "Td-1 (Pregnant Women)", hi: "टीडी-1 (गर्भवती महिला)" }, 
+                protectsAgainst: { en: "Tetanus (mother & newborn)", hi: "टिटनस (माँ और नवजात)" }, 
+                howGiven: { en: "Injection", hi: "इंजेक्शन" }, 
+                specialNotes: { en: "In first trimester.", hi: "पहली तिमाही में।" },
+                dateTimeAdministered: "", administeredBy: "", nextDueDate: {en:"Td-2", hi:"टीडी-2"}, remarks: "", isUserAdded: false 
+            },
+            { 
+                age: { en: "During Pregnancy", hi: "गर्भावस्था में" }, 
+                vaccineName: { en: "Td-2 / Booster (Pregnant Women)", hi: "टीडी-2 / बूस्टर (गर्भवती महिला)" }, 
+                protectsAgainst: { en: "Tetanus", hi: "टिटनस" }, 
+                howGiven: { en: "Injection", hi: "इंजेक्शन" }, 
+                specialNotes: { en: "4 weeks after Td-1 or booster if vaccinated in last 3 years.", hi: "Td-1 के 4 सप्ताह बाद या पिछले 3 वर्षों में टीका लिया हो तो केवल बूस्टर।" },
+                dateTimeAdministered: "", administeredBy: "", nextDueDate: {en:"-", hi:"-"}, remarks: "", isUserAdded: false 
+            }
+        ];
+        let vaccineSchedule = []; 
+
+        // --- DOM ELEMENTS ---
+        const tableBody = document.getElementById('vaccinationTableBody');
+        const detailsModal = document.getElementById('vaccineDetailsModal');
+        const modalVaccineName = document.getElementById('modalVaccineName');
+        const modalAge = document.getElementById('modalAge'); 
+        const modalProtectsAgainst = document.getElementById('modalProtectsAgainst');
+        const modalHowGiven = document.getElementById('modalHowGiven');
+        const modalTypicalNextDose = document.getElementById('modalTypicalNextDose'); 
+        const modalSpecialNotes = document.getElementById('modalSpecialNotes');
+        const closeDetailsModalBtn = document.getElementById('closeDetailsModalBtn');
+        const addVaccineModal = document.getElementById('addVaccineModal');
+        const openAddVaccineModalBtn = document.getElementById('openAddVaccineModalBtn');
+        const closeAddModalBtn = document.getElementById('closeAddModalBtn');
+        const submitNewVaccineBtn = document.getElementById('submitNewVaccineBtn');
+        const langToggleBtn = document.getElementById('langToggleBtn');
+
+        // --- FUNCTIONS ---
+        function G(id) { return document.getElementById(id); } 
+
+        function saveScheduleToLocalStorage() {
+            try {
+                localStorage.setItem('vaccinationChartSchedule', JSON.stringify(vaccineSchedule));
+            } catch (e) {
+                console.error("Error saving to localStorage", e);
+            }
+        }
+
+        function loadScheduleFromLocalStorage() {
+            try {
+                const savedSchedule = localStorage.getItem('vaccinationChartSchedule');
+                if (savedSchedule) {
+                    vaccineSchedule = JSON.parse(savedSchedule);
+                } else {
+                    vaccineSchedule = JSON.parse(JSON.stringify(defaultVaccineSchedule));
+                }
+            } catch (e) {
+                console.error("Error loading from localStorage, using default.", e);
+                vaccineSchedule = JSON.parse(JSON.stringify(defaultVaccineSchedule));
+            }
+        }
+
+        function updateUIText() {
+            document.title = uiStrings.pageTitle[currentLanguage];
+            G('pageTitle').textContent = uiStrings.pageTitle[currentLanguage];
+            G('openAddVaccineModalBtn').textContent = uiStrings.addVaccineBtn[currentLanguage];
+            G('infoText').innerHTML = uiStrings.infoText[currentLanguage]; 
+            
+            G('headerSno').innerHTML = uiStrings.headerSno[currentLanguage];
+            G('headerAge').innerHTML = uiStrings.headerAge[currentLanguage];
+            G('headerVaccine').innerHTML = uiStrings.headerVaccine[currentLanguage];
+            G('headerAdministered').innerHTML = uiStrings.headerAdministered[currentLanguage];
+            G('headerAdminBy').innerHTML = uiStrings.headerAdminBy[currentLanguage];
+            G('headerNextDue').innerHTML = uiStrings.headerNextDue[currentLanguage];
+            G('headerRemarks').innerHTML = uiStrings.headerRemarks[currentLanguage];
+            G('headerAction').innerHTML = uiStrings.headerAction[currentLanguage];
+
+            G('detailsModalAgeLabel').textContent = uiStrings.detailsModalAgeLabel[currentLanguage];
+            G('detailsModalProtectsLabel').textContent = uiStrings.detailsModalProtectsLabel[currentLanguage];
+            G('detailsModalHowGivenLabel').textContent = uiStrings.detailsModalHowGivenLabel[currentLanguage];
+            G('detailsModalTypicalNextDoseLabel').textContent = uiStrings.detailsModalTypicalNextDoseLabel[currentLanguage];
+            G('detailsModalSpecialNotesLabel').textContent = uiStrings.detailsModalSpecialNotesLabel[currentLanguage];
+            
+            G('addVaccineModalTitle').textContent = uiStrings.addVaccineModalTitle[currentLanguage];
+            G('labelNewSno').textContent = uiStrings.labelNewSno[currentLanguage];
+            G('labelNewAge').textContent = uiStrings.labelNewAge[currentLanguage];
+            G('labelNewVaccineName').textContent = uiStrings.labelNewVaccineName[currentLanguage];
+            // यदि Special Notes फ़ील्ड वापस जोड़ा है:
+            // if (G('labelNewSpecialNotes')) G('labelNewSpecialNotes').textContent = uiStrings.labelNewSpecialNotes[currentLanguage];
+
+
+            G('submitNewVaccineBtn').textContent = uiStrings.submitNewVaccineBtn[currentLanguage];
+
+            langToggleBtn.textContent = currentLanguage === 'hi' ? 'English' : 'हिन्दी';
+            renderTable(); 
+        }
+
+        function getText(field) {
+            if (typeof field === 'object' && field !== null) {
+                if (field.hasOwnProperty(currentLanguage) && field[currentLanguage]) {
+                    return field[currentLanguage];
+                }
+                else if (field.hasOwnProperty('en') && field['en']) { return field['en']; }
+                else if (field.hasOwnProperty('hi') && field['hi']) { return field['hi']; }
+                return ""; 
+            }
+            return field || ""; 
+        }
+        
+        function renderVaccineRow(vaccineData, index) {
+            if (!vaccineData) { 
+                console.error("Undefined vaccine object at index:", index);
+                return;
+            }
+            const row = tableBody.insertRow();
+            const currentSno = index + 1; 
+
+            let cell = row.insertCell(); 
+            cell.textContent = currentSno; 
+            cell.classList.add('col-sno');
+            cell.id = `sno-cell-${index}`; 
+
+            if (vaccineData.isUserAdded) { 
+                cell.classList.add('user-added-sno'); 
+            }
+            if (vaccineData.dateTimeAdministered) {
+                // user-added-sno को नहीं हटाएंगे ताकि बोल्ड इफ़ेक्ट बना रहे
+                cell.classList.add('sno-administered');
+            }
+
+
+            cell = row.insertCell(); cell.textContent = getText(vaccineData.age); cell.classList.add('col-age');
+            
+            cell = row.insertCell(); 
+            cell.textContent = getText(vaccineData.vaccineName); 
+            cell.classList.add('col-vaccine');
+            cell.onclick = () => openVaccineDetailsModal(vaccineData);
+            
+            cell = row.insertCell(); 
+            cell.id = `datetime-${index}`;
+            cell.innerHTML = vaccineData.dateTimeAdministered || "";
+            cell.classList.add('col-administered-datetime');
+
+            cell = row.insertCell(); cell.setAttribute('contenteditable', 'true'); cell.textContent = getText(vaccineData.administeredBy); cell.classList.add('col-admin-by');
+            cell.onblur = function() { 
+                vaccineData.administeredBy = this.textContent;
+                saveScheduleToLocalStorage();
+            };
+
+            cell = row.insertCell(); cell.setAttribute('contenteditable', 'true'); cell.textContent = getText(vaccineData.nextDueDate); cell.classList.add('col-next-due');
+            cell.onblur = function() { 
+                vaccineData.nextDueDate = this.textContent; 
+                saveScheduleToLocalStorage();
+            };
+
+            cell = row.insertCell(); cell.setAttribute('contenteditable', 'true'); cell.textContent = getText(vaccineData.remarks); cell.classList.add('col-remarks');
+            cell.onblur = function() { 
+                vaccineData.remarks = this.textContent;
+                saveScheduleToLocalStorage();
+            };
+
+            cell = row.insertCell();
+            const button = document.createElement('button');
+            button.textContent = uiStrings.markAdministeredBtn[currentLanguage];
+            button.classList.add('action-button');
+            button.onclick = function(event) {
+                event.stopPropagation();
+                markAsAdministered(index, this);
+            };
+            if (vaccineData.dateTimeAdministered) {
+                button.disabled = true;
+                button.textContent = uiStrings.administeredBtn[currentLanguage];
+            }
+            cell.appendChild(button);
+        }
+        
+        function renderTable() {
+            tableBody.innerHTML = "";
+            if (Array.isArray(vaccineSchedule)) {
+                vaccineSchedule.forEach((vaccine, index) => {
+                    renderVaccineRow(vaccine, index);
+                });
+            } else {
+                console.error("vaccineSchedule is not an array or is undefined.");
+            }
+        }
+
+        function markAsAdministered(rowIndex, buttonElement) {
+            const now = new Date();
+            const dateTimeCell = document.getElementById(`datetime-${rowIndex}`);
+            const day = String(now.getDate()).padStart(2, '0');
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const year = now.getFullYear();
+            const dateString = `${day}/${month}/${year}`;
+            const timeString = now.toLocaleTimeString(currentLanguage === 'hi' ? 'hi-IN' : 'en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+            
+            dateTimeCell.innerHTML = `${dateString}<br>${timeString}`;
+            buttonElement.disabled = true;
+            buttonElement.textContent = uiStrings.administeredBtn[currentLanguage];
+
+            const snoCell = document.getElementById(`sno-cell-${rowIndex}`);
+            if (snoCell) {
+                // user-added-sno को नहीं हटाएंगे
+                snoCell.classList.add('sno-administered');
+            }
+
+            if (vaccineSchedule[rowIndex]) { 
+                vaccineSchedule[rowIndex].dateTimeAdministered = dateTimeCell.innerHTML;
+                saveScheduleToLocalStorage(); 
+            }
+        }
+
+        function openVaccineDetailsModal(vaccineData) {
+            modalVaccineName.textContent = getText(vaccineData.vaccineName);
+            modalAge.textContent = getText(vaccineData.age);
+            modalProtectsAgainst.textContent = getText(vaccineData.protectsAgainst);
+            modalHowGiven.textContent = getText(vaccineData.howGiven) || uiStrings.notAvailable[currentLanguage];
+            const typicalNextDose = getText(vaccineData.nextDueDate); 
+            modalTypicalNextDose.textContent = (typicalNextDose && typicalNextDose !== "-") ? typicalNextDose : uiStrings.notAvailable[currentLanguage];
+            modalSpecialNotes.textContent = getText(vaccineData.specialNotes) || uiStrings.noSpecialNotes[currentLanguage];
+            detailsModal.style.display = "block";
+        }
+
+        closeDetailsModalBtn.onclick = function() { detailsModal.style.display = "none"; }
+
+        openAddVaccineModalBtn.onclick = function() { addVaccineModal.style.display = "block"; }
+        closeAddModalBtn.onclick = function() { addVaccineModal.style.display = "none"; clearAddVaccineForm(); }
+        
+        submitNewVaccineBtn.onclick = function() {
+            const insertAfterSnoInput = G('newVaccineSno').value.trim();
+            let insertAtIndex = vaccineSchedule.length; 
+
+            if (insertAfterSnoInput !== "") {
+                const sno = parseInt(insertAfterSnoInput);
+                if (!isNaN(sno) && sno > 0 && sno <= vaccineSchedule.length) {
+                    insertAtIndex = sno; 
+                } else if (!isNaN(sno) && sno > vaccineSchedule.length) {
+                    insertAtIndex = vaccineSchedule.length;
+                } else if (!isNaN(sno) && sno <= 0) {
+                     alert("क्रम संख्या 0 या नकारात्मक नहीं हो सकती। अंत में जोड़ा जा रहा है।"); 
+                     insertAtIndex = vaccineSchedule.length;
+                }
+                 else {
+                    alert(uiStrings.alertInvalidSno[currentLanguage]);
+                }
+            }
+
+            const newVaccineData = {
+                age: G('newVaccineAge').value.trim(),
+                vaccineName: G('newVaccineNameInput').value.trim(),
+                protectsAgainst: "", 
+                howGiven: "", 
+                nextDueDate: "", 
+                remarks: "",
+                // specialNotes: G('newSpecialNotesInput') ? G('newSpecialNotesInput').value.trim() : "", // यदि फ़ील्ड वापस जोड़ा है
+                specialNotes: "", // अभी के लिए खाली
+                dateTimeAdministered: "", 
+                administeredBy: "",
+                isUserAdded: true 
+            };
+
+            if (!newVaccineData.vaccineName || !newVaccineData.age ) {
+                alert(uiStrings.alertFillRequired[currentLanguage]);
+                return;
+            }
+            
+            vaccineSchedule.splice(insertAtIndex, 0, newVaccineData);
+            saveScheduleToLocalStorage(); 
+            
+            renderTable();
+            addVaccineModal.style.display = "none";
+            clearAddVaccineForm();
+        }
+        
+        function clearAddVaccineForm() {
+            G('newVaccineSno').value = "";
+            G('newVaccineAge').value = ""; 
+            G('newVaccineNameInput').value = "";
+            // if (G('newSpecialNotesInput')) G('newSpecialNotesInput').value = ""; // यदि फ़ील्ड वापस जोड़ा है
+        }
+
+        langToggleBtn.onclick = function() {
+            currentLanguage = (currentLanguage === 'hi') ? 'en' : 'hi';
+            localStorage.setItem('vaccineChartLang', currentLanguage);
+            updateUIText();
+        }
+
+        window.onclick = function(event) {
+            if (event.target == detailsModal) { detailsModal.style.display = "none"; }
+            if (event.target == addVaccineModal) { addVaccineModal.style.display = "none"; clearAddVaccineForm(); }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            loadScheduleFromLocalStorage(); 
+            updateUIText(); 
+        });
+    </script>
+</body>
+</html>
